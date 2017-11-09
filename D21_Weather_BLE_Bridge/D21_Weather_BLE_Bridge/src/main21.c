@@ -219,6 +219,9 @@ static void socket_cb(SOCKET sock, uint8_t u8Msg, void *pvMsg)
 
 					printf("%s\r\n", pcIndxPtr);
 				} else {
+					gbTcpConnection = false;
+					close(tcp_client_socket);
+					tcp_client_socket = -1;
 					printf("N/A\r\n");
 					break;
 				}
@@ -251,6 +254,7 @@ static void socket_cb(SOCKET sock, uint8_t u8Msg, void *pvMsg)
 					printf("%s\r\n", pcIndxPtr);
 					
 					/* Response processed, now close connection. */
+					gbTcpConnection = false;
 					close(tcp_client_socket);
 					tcp_client_socket = -1;
 					port_pin_set_output_level(LED_0_PIN, false);
@@ -261,6 +265,7 @@ static void socket_cb(SOCKET sock, uint8_t u8Msg, void *pvMsg)
 				recv(tcp_client_socket, &gau8ReceivedBuffer[0], MAIN_WIFI_M2M_BUFFER_SIZE, 0);
 			} else {
 				printf("socket_cb: recv error!\r\n");
+				gbTcpConnection = false;
 				close(tcp_client_socket);
 				tcp_client_socket = -1;
 			}
