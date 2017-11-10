@@ -1,7 +1,7 @@
 /**
  * \file
  *
- * \brief SAM D21 External Interrupt Driver Configuration Header
+ * \brief BLE Profile related declarations
  *
  * Copyright (c) 2017 Atmel Corporation. All rights reserved.
  *
@@ -40,44 +40,40 @@
  * \asf_license_stop
  *
  */
-#ifndef CONF_EXTINT_H_INCLUDED
-#define CONF_EXTINT_H_INCLUDED
-
-#include <asf.h>
-
-#define EXTINT_CLOCK_SOURCE      GCLK_GENERATOR_0
-
-
-void button_cb(void);
-
-/* Button Initialize */
-static inline void button_init(void)
-{
-	struct extint_chan_conf eint_chan_conf;
-	extint_chan_get_config_defaults(&eint_chan_conf);
-
-	eint_chan_conf.gpio_pin           = BUTTON_0_EIC_PIN;
-	eint_chan_conf.gpio_pin_pull      = EXTINT_PULL_UP;
-	eint_chan_conf.gpio_pin_mux       = BUTTON_0_EIC_MUX;
-	eint_chan_conf.detection_criteria = EXTINT_DETECT_FALLING;
-	eint_chan_conf.filter_input_signal = true;
-	extint_chan_set_config(BUTTON_0_EIC_LINE, &eint_chan_conf);
-	
-	extint_register_callback(button_cb,
-							BUTTON_0_EIC_LINE,
-							EXTINT_CALLBACK_TYPE_DETECT);
-	
-	extint_chan_enable_callback(BUTTON_0_EIC_LINE,
-							EXTINT_CALLBACK_TYPE_DETECT);
-}
-
-/**
- * \brief Read the current state of the button pin
- *
+/*
+ * Support and FAQ: visit <a href="http://www.atmel.com/design-support/">Atmel Support</a>
  */
-static inline uint8_t button_0_input_level(void) 
-{
-	return port_pin_get_input_level(BUTTON_0_PIN);
-}
 
-#endif
+#ifndef __PROFILES_H__
+#define __PROFILES_H__
+
+/// Message structure used to inform APP that an error has occurred in the profile server role task
+typedef struct prf_server_error_ind
+{
+    /// Connection Handle
+	uint16_t conhdl;
+    /// Message ID
+	uint16_t msg_id;
+    /// Status
+	uint8_t status;
+}prf_server_error_ind_t;
+
+/// Time profile information
+typedef struct prf_date_time
+{
+    /// year time element
+    uint16_t year;
+    /// month time element
+    uint8_t month;
+    /// day time element
+    uint8_t day;
+    /// hour time element
+    uint8_t hour;
+    /// minute time element
+    uint8_t min;
+    /// second time element
+    uint8_t sec;
+}prf_date_time_t;
+
+
+#endif /* __PROFILES_H__ */

@@ -1,7 +1,7 @@
 /**
  * \file
  *
- * \brief SAM D21 External Interrupt Driver Configuration Header
+ * \brief This file controls the software Serial FIFO management.
  *
  * Copyright (c) 2017 Atmel Corporation. All rights reserved.
  *
@@ -40,44 +40,36 @@
  * \asf_license_stop
  *
  */
-#ifndef CONF_EXTINT_H_INCLUDED
-#define CONF_EXTINT_H_INCLUDED
-
-#include <asf.h>
-
-#define EXTINT_CLOCK_SOURCE      GCLK_GENERATOR_0
-
-
-void button_cb(void);
-
-/* Button Initialize */
-static inline void button_init(void)
-{
-	struct extint_chan_conf eint_chan_conf;
-	extint_chan_get_config_defaults(&eint_chan_conf);
-
-	eint_chan_conf.gpio_pin           = BUTTON_0_EIC_PIN;
-	eint_chan_conf.gpio_pin_pull      = EXTINT_PULL_UP;
-	eint_chan_conf.gpio_pin_mux       = BUTTON_0_EIC_MUX;
-	eint_chan_conf.detection_criteria = EXTINT_DETECT_FALLING;
-	eint_chan_conf.filter_input_signal = true;
-	extint_chan_set_config(BUTTON_0_EIC_LINE, &eint_chan_conf);
-	
-	extint_register_callback(button_cb,
-							BUTTON_0_EIC_LINE,
-							EXTINT_CALLBACK_TYPE_DETECT);
-	
-	extint_chan_enable_callback(BUTTON_0_EIC_LINE,
-							EXTINT_CALLBACK_TYPE_DETECT);
-}
-
-/**
- * \brief Read the current state of the button pin
- *
+/*
+ * Support and FAQ: visit <a href="http://www.atmel.com/design-support/">Atmel Support</a>
  */
-static inline uint8_t button_0_input_level(void) 
-{
-	return port_pin_get_input_level(BUTTON_0_PIN);
-}
 
-#endif
+#include "serial_fifo.h"
+
+int ser_fifo_init(ser_fifo_desc_t *fifo_desc, void *buffer, uint16_t size)
+{
+	// Check the size parameter. It must be not null...
+	Assert (size);
+
+	// ... must be a 2-power ...
+	Assert (!(size & (size - 1)));
+
+	// ... and must fit in a uint16_t. Since the read and write indexes are using a
+	// double-index range implementation, the max FIFO size is thus 32768 items.
+	Assert (size <= 32768);
+
+	// Serial Fifo starts empty.
+	fifo_desc->read_index  = 0;
+	fifo_desc->write_index = 0;
+
+	// Save the size parameter.
+	fifo_desc->size = size;
+
+	// Create a mask to speed up the FIFO management (index swapping).
+	fifo_desc->mask = (2 * (uint16_t)size) - 1;
+
+	// Save the buffer pointer.
+	fifo_desc->buffer.u8ptr = buffer;
+
+	return SER_FIFO_OK;
+}

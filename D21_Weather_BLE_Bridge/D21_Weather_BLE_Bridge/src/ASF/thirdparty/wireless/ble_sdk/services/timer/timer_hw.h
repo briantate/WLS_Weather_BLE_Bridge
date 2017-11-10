@@ -1,7 +1,7 @@
 /**
- * \file
+ * \file timer_hw.h
  *
- * \brief SAM D21 External Interrupt Driver Configuration Header
+ * \brief Handles timer functionalities
  *
  * Copyright (c) 2017 Atmel Corporation. All rights reserved.
  *
@@ -38,46 +38,30 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * \asf_license_stop
- *
  */
-#ifndef CONF_EXTINT_H_INCLUDED
-#define CONF_EXTINT_H_INCLUDED
 
-#include <asf.h>
+#ifndef __TIMER_HW_H__
+#define __TIMER_HW_H__
 
-#define EXTINT_CLOCK_SOURCE      GCLK_GENERATOR_0
+#define STACK_HW_TIMERS		2
 
+typedef void (*hw_timer_callback_t)(void);
+typedef void (*platform_hw_timer_callback_t)(void *);
 
-void button_cb(void);
+void hw_timer_init(void);
+void hw_timer_register_callback(hw_timer_callback_t cb_ptr);
+void hw_timer_start(uint32_t timer_val_s);
+void hw_timer_start_ms(uint32_t timer_val_ms);
+void hw_timer_stop(void);
 
-/* Button Initialize */
-static inline void button_init(void)
-{
-	struct extint_chan_conf eint_chan_conf;
-	extint_chan_get_config_defaults(&eint_chan_conf);
+void *platform_create_hw_timer(platform_hw_timer_callback_t bus_tc_cb_ptr);
+void platform_start_bus_timer(void *timer_handle, uint32_t ms);
+void platform_delete_bus_timer(void *timer_handle);
+void platform_stop_bus_timer(void *timer_handle);
+void platform_stop_stack_timers(void);
 
-	eint_chan_conf.gpio_pin           = BUTTON_0_EIC_PIN;
-	eint_chan_conf.gpio_pin_pull      = EXTINT_PULL_UP;
-	eint_chan_conf.gpio_pin_mux       = BUTTON_0_EIC_MUX;
-	eint_chan_conf.detection_criteria = EXTINT_DETECT_FALLING;
-	eint_chan_conf.filter_input_signal = true;
-	extint_chan_set_config(BUTTON_0_EIC_LINE, &eint_chan_conf);
-	
-	extint_register_callback(button_cb,
-							BUTTON_0_EIC_LINE,
-							EXTINT_CALLBACK_TYPE_DETECT);
-	
-	extint_chan_enable_callback(BUTTON_0_EIC_LINE,
-							EXTINT_CALLBACK_TYPE_DETECT);
-}
-
-/**
- * \brief Read the current state of the button pin
- *
- */
-static inline uint8_t button_0_input_level(void) 
-{
-	return port_pin_get_input_level(BUTTON_0_PIN);
-}
-
+#ifdef BTLC_REINIT_SUPPORT
+void platform_reset_hw_timer(void);
 #endif
+
+#endif /* __TIMER_HW_H__ */

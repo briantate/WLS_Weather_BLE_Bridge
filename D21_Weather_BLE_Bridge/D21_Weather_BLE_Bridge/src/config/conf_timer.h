@@ -1,7 +1,7 @@
 /**
  * \file
  *
- * \brief SAM D21 External Interrupt Driver Configuration Header
+ * \brief Timer Driver Configuration Header
  *
  * Copyright (c) 2017 Atmel Corporation. All rights reserved.
  *
@@ -40,44 +40,25 @@
  * \asf_license_stop
  *
  */
-#ifndef CONF_EXTINT_H_INCLUDED
-#define CONF_EXTINT_H_INCLUDED
+#ifndef CONF_TIMER_H_INCLUDED
+#define CONF_TIMER_H_INCLUDED
 
-#include <asf.h>
+#define TMRID0 TC4
 
-#define EXTINT_CLOCK_SOURCE      GCLK_GENERATOR_0
+#ifdef TC6
+#define TMRID1 TC6
+#else
+#define TMRID1 TC4
+#endif
 
+#define CONF_TC_MODULE TC3
 
-void button_cb(void);
+#define STACK_TIMER0 TMRID0
+#define STACK_TIMER1 TMRID1
+#define APP_TIMER	 CONF_TC_MODULE
 
-/* Button Initialize */
-static inline void button_init(void)
-{
-	struct extint_chan_conf eint_chan_conf;
-	extint_chan_get_config_defaults(&eint_chan_conf);
+#define TC_COUNT_1SEC  (48000000ul/1024ul)
+struct tc_module tc_instance;
 
-	eint_chan_conf.gpio_pin           = BUTTON_0_EIC_PIN;
-	eint_chan_conf.gpio_pin_pull      = EXTINT_PULL_UP;
-	eint_chan_conf.gpio_pin_mux       = BUTTON_0_EIC_MUX;
-	eint_chan_conf.detection_criteria = EXTINT_DETECT_FALLING;
-	eint_chan_conf.filter_input_signal = true;
-	extint_chan_set_config(BUTTON_0_EIC_LINE, &eint_chan_conf);
-	
-	extint_register_callback(button_cb,
-							BUTTON_0_EIC_LINE,
-							EXTINT_CALLBACK_TYPE_DETECT);
-	
-	extint_chan_enable_callback(BUTTON_0_EIC_LINE,
-							EXTINT_CALLBACK_TYPE_DETECT);
-}
-
-/**
- * \brief Read the current state of the button pin
- *
- */
-static inline uint8_t button_0_input_level(void) 
-{
-	return port_pin_get_input_level(BUTTON_0_PIN);
-}
 
 #endif

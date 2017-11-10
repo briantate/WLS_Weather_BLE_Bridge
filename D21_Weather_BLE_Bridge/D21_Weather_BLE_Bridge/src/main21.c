@@ -93,10 +93,15 @@
 #include "main.h"
 #include "bsp/include/nm_bsp.h"
 #include "socket/include/socket.h"
+#include "sio2host.h"
+#include "transparent_uart.h"
+#include "ble_manager.h"
+#include "at_ble_api.h"
+#include "ble_utils.h"
 
 #define CITY_NAME_SIZE 20
 #define STRING_EOL    "\r\n"
-#define STRING_HEADER "-- WINC1500 weather client example --"STRING_EOL	\
+#define STRING_HEADER "-- WINC1500/BTLC1000 weather client bridge --"STRING_EOL	\
 	"-- "BOARD_NAME " --"STRING_EOL	\
 	"-- Compiled: "__DATE__ " "__TIME__ " --"STRING_EOL
 
@@ -120,6 +125,26 @@ static bool gbHostIpByName = false;
 
 /** TCP Connection status variable. */
 static bool gbTcpConnection = false;
+
+/**City Name to find*/
+static char city[CITY_NAME_SIZE];
+
+/**Variables to support BLE*/
+
+/** Tells whether to request weather*/
+static bool req_weather = false;
+/**City name*/
+static char city_name_ble[CITY_NAME_SIZE];
+/**Temperature*/
+static char curTemperature[10];
+/**Weather Conditions*/
+static char curWeather[10];
+/**weather response message to GATT Client*/
+static char weather_resp[100];
+/** Weather response length*/
+static uint8_t weather_resp_len = 0;
+
+/** End variables to support BLE*/
 
 /**
  * \brief Configure UART console.
@@ -155,6 +180,19 @@ static void resolve_cb(uint8_t *hostName, uint32_t hostIp)
 	printf("resolve_cb: %s IP address is %d.%d.%d.%d\r\n\r\n", hostName,
 			(int)IPV4_BYTE(hostIp, 0), (int)IPV4_BYTE(hostIp, 1),
 			(int)IPV4_BYTE(hostIp, 2), (int)IPV4_BYTE(hostIp, 3));
+			
+	/* Start BLE advertisement*/
+	ble_app_state_set_start_adv();
+}
+
+void request_weather(char *symbol){
+	if(symbol)
+	{
+		memset(city, 0, sizeof(city));
+		memcpy(city, symbol, strlen(symbol));
+		/*set a flag to request stock quote */
+		req_weather = true;
+	}
 }
 
 /**
@@ -203,11 +241,84 @@ static void socket_cb(SOCKET sock, uint8_t u8Msg, void *pvMsg)
 		{
 			char *pcIndxPtr;
 			char *pcEndPtr;
-
+			
 			tstrSocketRecvMsg *pstrRecv = (tstrSocketRecvMsg *)pvMsg;
 			if (pstrRecv && pstrRecv->s16BufferSize > 0) {
+				
+				/*Get City Name*/
+				pcIndxPtr = strstr((char *)pstrRecv->pu8Buffer, "name=");
+				if (NULL != pcIndxPtr) {
+					pcIndxPtr = pcIndxPtr + strlen("name=") + 1;
+				}
+				pcEndPtr = strstr(pcIndxPtr, "\">");
+				if(pcIndxPtr && pcEndPtr)
+				{
+					memset(city_name_ble, 0, sizeof(city_name_ble));
+					memcpy(city_name_ble, pcIndxPtr, (pcEndPtr - pcIndxPtr - 1));
+					weather_resp_len = (pcEndPtr - pcIndxPtr - 1);
+					
+					/* Get Latest Value */
+					pcIndxPtr = pcEndPtr + 1;
+					pcEndPtr = strstr(pcIndxPtr, "\" ");
+					if(pcIndxPtr && pcEndPtr)
+					{
+						memset(curTemperature, 0, sizeof(curTemperature));
+						memcpy(curTemperature, pcIndxPtr, (pcEndPtr - pcIndxPtr - 1));
+						weather_resp_len += (pcEndPtr - pcIndxPtr - 1);
+					}
 
-				/* Get city name. */
+					/* Get Change in stock value */
+					pcIndxPtr = pcEndPtr + 1;
+					pcEndPtr = strstr(pcIndxPtr, "\" ");
+					if(pcIndxPtr && pcEndPtr)
+					{
+						memset(curWeather, 0, sizeof(curWeather));
+						memcpy(curWeather, pcIndxPtr, (pcEndPtr - pcIndxPtr - 1));
+						weather_resp_len += (pcEndPtr - pcIndxPtr - 1);
+					}
+				
+					/* Construct stock quote
+					Stock Symbol : 
+					Latest Value :
+					Change       : */
+					memset(weather_resp, 0, sizeof(weather_resp));
+					sprintf((char *)weather_resp, "%s%s%s%s%s%s%s", CITY_NAME, city_name_ble, TEMPERATURE_VALUE, curTemperature, WEATHER_VALUE, curWeather, NEW_LINE);
+					/* Send a stock quote to GATT-Client */
+					ble_app_send_stock_quote((uint8_t *)weather_resp, weather_resp_len + sizeof(CITY_NAME) + sizeof(TEMPERATURE_VALUE) + sizeof(WEATHER_VALUE) + sizeof(NEW_LINE));
+				}
+				else
+				{
+					/* Construct error message */
+					memcpy(weather_resp, STOCK_SERVER_ERROR, sizeof(STOCK_SERVER_ERROR));
+					/* Send a stock quote to GATT-Client */
+					ble_app_send_stock_quote((uint8_t *)weather_resp, sizeof(STOCK_SERVER_ERROR));
+				}
+				
+				close(tcp_client_socket);
+				tcp_client_socket = -1;
+				gbTcpConnection =false;
+				///* Request user to enter another stock ticker name */
+				//printf("\r\nEnter Stock Ticker Name : ");
+				//scanf("%s",ticker);
+				//sprintf((char *)gau8ReceivedBuffer, "%s%s%s", MAIN_PREFIX_BUFFER, (char *)ticker, MAIN_POST_BUFFER);
+				//tcp_client_socket = socket()
+				///* Send the new stock ticker request to Yahoo */
+				//send(tcp_client_socket, gau8ReceivedBuffer, strlen((char *)gau8ReceivedBuffer), 0);
+				///* Clear the receive buffer and add a receive request to WINC to get the response from Yahoo */
+				//memset(gau8ReceivedBuffer, 0, MAIN_WIFI_M2M_BUFFER_SIZE);
+				//recv(tcp_client_socket, &gau8ReceivedBuffer[0], MAIN_WIFI_M2M_BUFFER_SIZE, 0);
+				break;
+			} else {
+				/* Receive Error! */
+				printf("socket_cb: recv error!\r\n");
+				close(tcp_client_socket);
+				tcp_client_socket = -1;
+			}
+		}
+		break;
+
+/*
+				/ * Get city name. * /
 				pcIndxPtr = strstr((char *)pstrRecv->pu8Buffer, "name=");
 				printf("City: ");
 				if (NULL != pcIndxPtr) {
@@ -226,7 +337,7 @@ static void socket_cb(SOCKET sock, uint8_t u8Msg, void *pvMsg)
 					break;
 				}
 
-				/* Get temperature. */
+				/ * Get temperature. * /
 				pcIndxPtr = strstr(pcEndPtr + 1, "temperature value");
 				printf("Temperature: ");
 				if (NULL != pcIndxPtr) {
@@ -242,7 +353,7 @@ static void socket_cb(SOCKET sock, uint8_t u8Msg, void *pvMsg)
 					break;
 				}
 
-				/* Get weather condition. */
+				/ * Get weather condition. * /
 				pcIndxPtr = strstr(pcEndPtr + 1, "weather number");
 				if (NULL != pcIndxPtr) {
 					printf("Weather Condition: ");
@@ -253,7 +364,7 @@ static void socket_cb(SOCKET sock, uint8_t u8Msg, void *pvMsg)
 					}
 					printf("%s\r\n", pcIndxPtr);
 					
-					/* Response processed, now close connection. */
+					/ * Response processed, now close connection. * /
 					gbTcpConnection = false;
 					close(tcp_client_socket);
 					tcp_client_socket = -1;
@@ -271,6 +382,7 @@ static void socket_cb(SOCKET sock, uint8_t u8Msg, void *pvMsg)
 			}
 		}
 		break;
+*/
 
 		default:
 			break;
@@ -368,9 +480,10 @@ int main(void)
 
 	/* Initialize the board. */
 	system_init();
-
+	
 	/* Initialize the UART console. */
-	configure_console();
+//	configure_console();
+	sio2host_init();
 	printf(STRING_HEADER);
 
 	/* Initialize the BSP. */
@@ -410,14 +523,20 @@ int main(void)
 	/* Start web provisioning mode. */
 	//m2m_wifi_start_provision_mode((tstrM2MAPConfig *)&gstrM2MAPConfig, (char *)gacHttpProvDomainName, 1);
 	m2m_wifi_connect(MAIN_M2M_SSID, sizeof(MAIN_M2M_SSID),MAIN_M2M_SEC,MAIN_M2M_PASSWORD, M2M_WIFI_CH_ALL);
-	printf("\r\nProvision Mode started.\r\nConnect to [%s] via AP[%s] and fill up the page.\r\n\r\n",
-			MAIN_HTTP_PROV_SERVER_DOMAIN_NAME, gstrM2MAPConfig.au8SSID);
+	printf("connecting to %c\r\n", MAIN_M2M_SSID);
+	//printf("\r\nProvision Mode started.\r\nConnect to [%s] via AP[%s] and fill up the page.\r\n\r\n",
+	//		MAIN_HTTP_PROV_SERVER_DOMAIN_NAME, gstrM2MAPConfig.au8SSID);
 
+	ble_device_init(NULL);
+	
 	while (1) {
 		m2m_wifi_handle_events(NULL);
+		/*Handle BLE application states and process events */
+		ble_app_process();
 
-		if (gbConnectedWifi && !gbTcpConnection) {
+		if (gbConnectedWifi && !gbTcpConnection && req_weather) {
 			if (gbHostIpByName) {
+				req_weather = false;
 				/* Open TCP client socket. */
 				if (tcp_client_socket < 0) {
 					if ((tcp_client_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -438,6 +557,7 @@ int main(void)
 				gbTcpConnection = true;
 			}
 		}
+		
 	}
 
 	return 0;

@@ -92,6 +92,13 @@ static CONST char gacHttpProvDomainName[] = MAIN_HTTP_PROV_SERVER_DOMAIN_NAME;
 static uint8_t gau8MacAddr[] = MAIN_MAC_ADDRESS;
 static int8_t gacDeviceName[] = MAIN_M2M_DEVICE_NAME;
 
+/* Stock quote response labels */
+#define CITY_NAME						    ("\r\nCity Name   : ")
+#define TEMPERATURE_VALUE					("\r\nTemperature : ")
+#define WEATHER_VALUE					    ("\r\nWeather     : ")
+#define STOCK_SERVER_ERROR					("\r\nServer ERROR.\r\nTry again!!!")
+#define NEW_LINE							("\r\n")
+
 #ifdef __cplusplus
 }
 #endif

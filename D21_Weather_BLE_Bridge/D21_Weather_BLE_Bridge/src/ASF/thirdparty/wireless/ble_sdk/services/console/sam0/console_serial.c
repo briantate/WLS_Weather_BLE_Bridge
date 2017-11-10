@@ -1,7 +1,7 @@
 /**
- * \file
+ * \file console_serial.c
  *
- * \brief SAM D21 External Interrupt Driver Configuration Header
+ * \brief Serial Console functionalities
  *
  * Copyright (c) 2017 Atmel Corporation. All rights reserved.
  *
@@ -38,46 +38,51 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * \asf_license_stop
- *
  */
-#ifndef CONF_EXTINT_H_INCLUDED
-#define CONF_EXTINT_H_INCLUDED
+
+/* === INCLUDES ============================================================ */
 
 #include <asf.h>
+#include "console_serial.h"
+#include "conf_console.h"
+#include "usart.h"
+#include "platform.h"
+#include "timer_hw.h"
+/* === TYPES =============================================================== */
 
-#define EXTINT_CLOCK_SOURCE      GCLK_GENERATOR_0
+/* === MACROS ============================================================== */
+static struct usart_module cdc_uart_module;
 
-
-void button_cb(void);
-
-/* Button Initialize */
-static inline void button_init(void)
-{
-	struct extint_chan_conf eint_chan_conf;
-	extint_chan_get_config_defaults(&eint_chan_conf);
-
-	eint_chan_conf.gpio_pin           = BUTTON_0_EIC_PIN;
-	eint_chan_conf.gpio_pin_pull      = EXTINT_PULL_UP;
-	eint_chan_conf.gpio_pin_mux       = BUTTON_0_EIC_MUX;
-	eint_chan_conf.detection_criteria = EXTINT_DETECT_FALLING;
-	eint_chan_conf.filter_input_signal = true;
-	extint_chan_set_config(BUTTON_0_EIC_LINE, &eint_chan_conf);
-	
-	extint_register_callback(button_cb,
-							BUTTON_0_EIC_LINE,
-							EXTINT_CALLBACK_TYPE_DETECT);
-	
-	extint_chan_enable_callback(BUTTON_0_EIC_LINE,
-							EXTINT_CALLBACK_TYPE_DETECT);
-}
 
 /**
- * \brief Read the current state of the button pin
- *
+ *  Configure console.
  */
-static inline uint8_t button_0_input_level(void) 
+void serial_console_init(void)
 {
-	return port_pin_get_input_level(BUTTON_0_PIN);
+ 	struct usart_config usart_conf;
+
+	usart_get_config_defaults(&usart_conf);
+	usart_conf.mux_setting = CONF_STDIO_MUX_SETTING;
+	usart_conf.pinmux_pad0 = CONF_STDIO_PINMUX_PAD0;
+	usart_conf.pinmux_pad1 = CONF_STDIO_PINMUX_PAD1;
+	usart_conf.pinmux_pad2 = CONF_STDIO_PINMUX_PAD2;
+	usart_conf.pinmux_pad3 = CONF_STDIO_PINMUX_PAD3;
+	usart_conf.baudrate    = CONF_STDIO_BAUDRATE;
+
+	stdio_serial_init(&cdc_uart_module, CONF_STDIO_USART_MODULE, &usart_conf);
+	usart_enable(&cdc_uart_module);
 }
 
-#endif
+uint8_t getchar_timeout(uint32_t timeout)
+{
+	uint16_t temp = 0xFF;
+
+	while((STATUS_OK != usart_read_wait(&cdc_uart_module, &temp)) && timeout){
+		timeout--;
+		delay_ms(1);
+	}
+
+	return ((uint8_t)temp);	
+}
+
+/* EOF */
