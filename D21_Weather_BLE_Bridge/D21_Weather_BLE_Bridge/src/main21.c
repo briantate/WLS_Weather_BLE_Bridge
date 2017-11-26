@@ -234,12 +234,12 @@ static void socket_cb(SOCKET sock, uint8_t u8Msg, void *pvMsg)
 		{
 			char *pcIndxPtr;
 			char *pcEndPtr;
-			printf("received weather info\r\n");
+//			printf("received weather info\r\n");
 			tstrSocketRecvMsg *pstrRecv = (tstrSocketRecvMsg *)pvMsg;
 			if (pstrRecv && pstrRecv->s16BufferSize > 0) {
 				
 				/*Get City Name*/
-				printf("searching for weather data\r\n");
+//				printf("searching for weather data\r\n");
 				pcIndxPtr = strstr((char *)pstrRecv->pu8Buffer, "name=");
 				if(pcIndxPtr)
 				{

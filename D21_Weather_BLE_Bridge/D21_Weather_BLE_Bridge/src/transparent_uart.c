@@ -212,7 +212,7 @@ static at_ble_status_t ble_app_tu_serv_send_data(uint16_t connhandle, uint8_t *d
 	uint16_t value = 0;
 	uint16_t length = sizeof(uint16_t);
 	
-	printf("get char val\r\n");
+//	printf("get char val\r\n");
 	status = at_ble_characteristic_value_get(transparent_uart.chars[CHAR_TX].client_config_handle, (uint8_t *)&value, &length);
 	if (status != AT_BLE_SUCCESS)
 	{
@@ -221,15 +221,15 @@ static at_ble_status_t ble_app_tu_serv_send_data(uint16_t connhandle, uint8_t *d
 	}
 	if(value == 1)
 	{
-		printf("val set\r\n");
+//		printf("val set\r\n");
 		status = at_ble_characteristic_value_set(transparent_uart.chars[CHAR_TX].char_val_handle, databuf, datalen);
-		printf("status = %x\r\n",status);
+//		printf("status = %x\r\n",status);
 		if (status != AT_BLE_SUCCESS)
 		{
 			DBG_LOG("at_ble_characteristic_value_set value set failed = 0x%02X", status);
 			return status;
 		}
-		printf("notif send\r\n");
+//		printf("notif send\r\n");
 		status = at_ble_notification_send(connhandle, transparent_uart.chars[CHAR_TX].char_val_handle);
 		if (status != AT_BLE_SUCCESS)
 		{
@@ -255,12 +255,12 @@ void ble_app_send_weather_data(uint8_t *data, uint16_t data_len)
 //		if(remote_dev_info[index].sq_state == BLE_APP_STOCK_QUOTE_UNDER_PROCESSING)
 		if(remote_dev_info[index].sq_state == BLE_APP_WEATHER_UNDER_PROCESSING)
 		{
-			printf("send data packet\r\n");
+//			printf("send data packet\r\n");
 			ble_app_tu_serv_send_data(remote_dev_info[index].remote_dev_conn_info.handle, data, data_len);
 			/* This application is NOT resending stock quote, if it fails first time. */
 //			remote_dev_info[index].sq_state = BLE_APP_STOCK_SYMBOL_NOT_RECEIVED;
 			remote_dev_info[index].sq_state = BLE_APP_CITY_NAME_NOT_RECEIVED;
-			printf("breaking from send packet\r\n");
+//			printf("breaking from send packet\r\n");
 			break;
 		}
 	}
