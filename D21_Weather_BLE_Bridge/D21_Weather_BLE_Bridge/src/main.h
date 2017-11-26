@@ -96,7 +96,8 @@ static int8_t gacDeviceName[] = MAIN_M2M_DEVICE_NAME;
 #define CITY_NAME						    ("\r\nCity Name   : ")
 #define TEMPERATURE_VALUE					("\r\nTemperature : ")
 #define WEATHER_VALUE					    ("\r\nWeather     : ")
-#define STOCK_SERVER_ERROR					("\r\nServer ERROR.\r\nTry again!!!")
+//#define STOCK_SERVER_ERROR					("\r\nServer ERROR.\r\nTry again!!!")
+#define WEATHER_SERVER_ERROR					("\r\nServer ERROR.\r\nTry again!!!")
 #define NEW_LINE							("\r\n")
 
 #ifdef __cplusplus

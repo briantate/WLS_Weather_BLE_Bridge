@@ -21,6 +21,7 @@ static bool is_ble_advertising = false;
 
 /* Stock symbol */
 //static char stock_symbol[10];
+static char city_name[20];
 
 
 /* Function Prototype */
@@ -35,7 +36,8 @@ static at_ble_status_t ble_app_tu_serv_send_data(uint16_t connhandle, uint8_t *d
 static void ble_app_state_set(ble_app_init_t state);
 
 /* Request stock quote from internet */
-extern void request_stock_quote(char *symbol);
+//extern void request_stock_quote(char *symbol);
+extern void request_weather(char* symbol);
 
 /* GAP event callback list */
 const ble_gap_event_cb_t app_ble_gap_event = {
@@ -136,10 +138,13 @@ static at_ble_status_t ble_app_char_changed_event(void *param)
 					for(index = 0; index < char_data->char_len; index++)
 					{
 						//DBG_LOG_CONT("%c",char_data->char_new_value[index]);
-						remote_dev_info[conn_index].stock_symbol[index] = (char)char_data->char_new_value[index];
+//						remote_dev_info[conn_index].stock_symbol[index] = (char)char_data->char_new_value[index];
+						remote_dev_info[conn_index].city_name[index] = (char)char_data->char_new_value[index];
 					}
-					remote_dev_info[conn_index].stock_symbol[index] = '\0';
-					remote_dev_info[conn_index].sq_state = BLE_APP_STOCK_SYMBOL_RECEIVED;
+//					remote_dev_info[conn_index].stock_symbol[index] = '\0';
+//					remote_dev_info[conn_index].sq_state = BLE_APP_STOCK_SYMBOL_RECEIVED;
+					remote_dev_info[conn_index].city_name[index] = '\0';
+					remote_dev_info[conn_index].sq_state = BLE_APP_CITY_NAME_RECEIVED;
 					ble_app_state = BLE_APP_SYMBOL_RECEIVED;
 					break;
 				}
@@ -207,6 +212,7 @@ static at_ble_status_t ble_app_tu_serv_send_data(uint16_t connhandle, uint8_t *d
 	uint16_t value = 0;
 	uint16_t length = sizeof(uint16_t);
 	
+	printf("get char val\r\n");
 	status = at_ble_characteristic_value_get(transparent_uart.chars[CHAR_TX].client_config_handle, (uint8_t *)&value, &length);
 	if (status != AT_BLE_SUCCESS)
 	{
@@ -215,12 +221,15 @@ static at_ble_status_t ble_app_tu_serv_send_data(uint16_t connhandle, uint8_t *d
 	}
 	if(value == 1)
 	{
+		printf("val set\r\n");
 		status = at_ble_characteristic_value_set(transparent_uart.chars[CHAR_TX].char_val_handle, databuf, datalen);
+		printf("status = %x\r\n",status);
 		if (status != AT_BLE_SUCCESS)
 		{
 			DBG_LOG("at_ble_characteristic_value_set value set failed = 0x%02X", status);
 			return status;
 		}
+		printf("notif send\r\n");
 		status = at_ble_notification_send(connhandle, transparent_uart.chars[CHAR_TX].char_val_handle);
 		if (status != AT_BLE_SUCCESS)
 		{
@@ -238,15 +247,20 @@ static at_ble_status_t ble_app_tu_serv_send_data(uint16_t connhandle, uint8_t *d
   *
   * @return 
   */
-void ble_app_send_stock_quote(uint8_t *data, uint16_t data_len)
+//void ble_app_send_stock_quote(uint8_t *data, uint16_t data_len)
+void ble_app_send_weather_data(uint8_t *data, uint16_t data_len)
 {
 	for(uint8_t index = 0; index < MAX_REMOTE_DEVICE; index++)
 	{
-		if(remote_dev_info[index].sq_state == BLE_APP_STOCK_QUOTE_UNDER_PROCESSING)
+//		if(remote_dev_info[index].sq_state == BLE_APP_STOCK_QUOTE_UNDER_PROCESSING)
+		if(remote_dev_info[index].sq_state == BLE_APP_WEATHER_UNDER_PROCESSING)
 		{
+			printf("send data packet\r\n");
 			ble_app_tu_serv_send_data(remote_dev_info[index].remote_dev_conn_info.handle, data, data_len);
 			/* This application is NOT resending stock quote, if it fails first time. */
-			remote_dev_info[index].sq_state = BLE_APP_STOCK_SYMBOL_NOT_RECEIVED;
+//			remote_dev_info[index].sq_state = BLE_APP_STOCK_SYMBOL_NOT_RECEIVED;
+			remote_dev_info[index].sq_state = BLE_APP_CITY_NAME_NOT_RECEIVED;
+			printf("breaking from send packet\r\n");
 			break;
 		}
 	}
@@ -418,13 +432,14 @@ bool ble_app_is_init_state(void)
   *
   * @return stock symbol
   */
-char* ble_app_get_stock_symbol(void)
+//char* ble_app_get_stock_symbol(void)
+char* ble_app_get_city_name(void)
 {
 	for(uint8_t conn_index = 0; conn_index < MAX_REMOTE_DEVICE; conn_index++)
 	{
-		if(remote_dev_info[conn_index].sq_state == BLE_APP_STOCK_QUOTE_UNDER_PROCESSING)
+		if(remote_dev_info[conn_index].sq_state == BLE_APP_WEATHER_UNDER_PROCESSING)
 		{
-			return remote_dev_info[conn_index].stock_symbol;
+			return remote_dev_info[conn_index].city_name;
 		}
 	}
 	
@@ -523,23 +538,30 @@ void ble_app_process(void)
 		case BLE_APP_SYMBOL_RECEIVED:
 		{
 			/* Set to true, if any other devices requested stock quote. Otherwise set to false */
-			bool more_stock_symbol = false;
+//			bool more_stock_symbol = false;
+			bool more_city_name = false;
 			
 			for(uint8_t conn_index = 0; conn_index < MAX_REMOTE_DEVICE; conn_index++)
 			{
-				if(remote_dev_info[conn_index].sq_state == BLE_APP_STOCK_SYMBOL_RECEIVED)
+//				if(remote_dev_info[conn_index].sq_state == BLE_APP_STOCK_SYMBOL_RECEIVED)
+				if(remote_dev_info[conn_index].sq_state == BLE_APP_CITY_NAME_RECEIVED)
 				{
-					remote_dev_info[conn_index].sq_state = BLE_APP_STOCK_QUOTE_UNDER_PROCESSING;
-					request_stock_quote(remote_dev_info[conn_index].stock_symbol);
+//					remote_dev_info[conn_index].sq_state = BLE_APP_STOCK_QUOTE_UNDER_PROCESSING;
+					remote_dev_info[conn_index].sq_state = BLE_APP_WEATHER_UNDER_PROCESSING;
+					//request_stock_quote(remote_dev_info[conn_index].stock_symbol);
+					request_weather(remote_dev_info[conn_index].city_name);
 				}
 				
-				if(remote_dev_info[conn_index].sq_state == BLE_APP_STOCK_SYMBOL_RECEIVED)
+//				if(remote_dev_info[conn_index].sq_state == BLE_APP_STOCK_SYMBOL_RECEIVED)
+				if(remote_dev_info[conn_index].sq_state == BLE_APP_WEATHER_UNDER_PROCESSING)
 				{
-					more_stock_symbol = true;
+//					more_stock_symbol = true;
+					more_city_name = true;
 				}
 			}
 			
-			if(!more_stock_symbol)
+//			if(!more_stock_symbol)
+			if(!more_city_name)
 			{
 				ble_app_state = BLE_APP_CONNECTED;
 			}

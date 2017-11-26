@@ -129,22 +129,23 @@ static bool gbTcpConnection = false;
 /**City Name to find*/
 static char city[CITY_NAME_SIZE];
 
-/**Variables to support BLE*/
-
 /** Tells whether to request weather*/
 static bool req_weather = false;
+
 /**City name*/
 static char city_name_ble[CITY_NAME_SIZE];
+
 /**Temperature*/
 static char curTemperature[10];
+
 /**Weather Conditions*/
-static char curWeather[10];
+static char curWeather[20];
+
 /**weather response message to GATT Client*/
 static char weather_resp[100];
+
 /** Weather response length*/
 static uint8_t weather_resp_len = 0;
-
-/** End variables to support BLE*/
 
 /**
  * \brief Configure UART console.
@@ -181,18 +182,8 @@ static void resolve_cb(uint8_t *hostName, uint32_t hostIp)
 			(int)IPV4_BYTE(hostIp, 0), (int)IPV4_BYTE(hostIp, 1),
 			(int)IPV4_BYTE(hostIp, 2), (int)IPV4_BYTE(hostIp, 3));
 			
-	/* Start BLE advertisement*/
+	/* Start BLE advertisement */
 	ble_app_state_set_start_adv();
-}
-
-void request_weather(char *symbol){
-	if(symbol)
-	{
-		memset(city, 0, sizeof(city));
-		memcpy(city, symbol, strlen(symbol));
-		/*set a flag to request stock quote */
-		req_weather = true;
-	}
 }
 
 /**
@@ -206,7 +197,7 @@ void request_weather(char *symbol){
  */
 static void socket_cb(SOCKET sock, uint8_t u8Msg, void *pvMsg)
 {
-	static char cityName[CITY_NAME_SIZE];
+//	static char cityName[CITY_NAME_SIZE];
 	/* Check for socket event on TCP socket. */
 	if (sock == tcp_client_socket) {
 		switch (u8Msg) {
@@ -215,13 +206,15 @@ static void socket_cb(SOCKET sock, uint8_t u8Msg, void *pvMsg)
 			if (gbTcpConnection) {
 				memset(gau8ReceivedBuffer, 0, sizeof(gau8ReceivedBuffer));
 				
-				printf("Enter City Name: ");
-				scanf("%s", cityName);
-				printf("\r\n%s\r\n\r\n\r\n", cityName);
-				sprintf((char *)gau8ReceivedBuffer, "%s%s%s", MAIN_PREFIX_BUFFER, (char *)cityName, MAIN_POST_BUFFER);
+//				printf("Enter City Name: ");
+//				scanf("%s", cityName);
+//				printf("\r\n%s\r\n\r\n\r\n", cityName);
+				printf("Requesting %s weather\r\n", city);
+				sprintf((char *)gau8ReceivedBuffer, "%s%s%s", MAIN_PREFIX_BUFFER, (char *)city, MAIN_POST_BUFFER);
 				//sprintf((char *)gau8ReceivedBuffer, "%s%s%s", MAIN_PREFIX_BUFFER, (char *)MAIN_CITY_NAME, MAIN_POST_BUFFER);
 
 				tstrSocketConnectMsg *pstrConnect = (tstrSocketConnectMsg *)pvMsg;
+				/* Check if Connection to the server is successful */
 				if (pstrConnect && pstrConnect->s8Error >= SOCK_ERR_NO_ERROR) {
 					send(tcp_client_socket, gau8ReceivedBuffer, strlen((char *)gau8ReceivedBuffer), 0);
 
@@ -241,59 +234,93 @@ static void socket_cb(SOCKET sock, uint8_t u8Msg, void *pvMsg)
 		{
 			char *pcIndxPtr;
 			char *pcEndPtr;
-			
+			printf("received weather info\r\n");
 			tstrSocketRecvMsg *pstrRecv = (tstrSocketRecvMsg *)pvMsg;
 			if (pstrRecv && pstrRecv->s16BufferSize > 0) {
 				
 				/*Get City Name*/
+				printf("searching for weather data\r\n");
 				pcIndxPtr = strstr((char *)pstrRecv->pu8Buffer, "name=");
-				if (NULL != pcIndxPtr) {
-					pcIndxPtr = pcIndxPtr + strlen("name=") + 1;
-				}
-				pcEndPtr = strstr(pcIndxPtr, "\">");
-				if(pcIndxPtr && pcEndPtr)
+				if(pcIndxPtr)
 				{
-					memset(city_name_ble, 0, sizeof(city_name_ble));
-					memcpy(city_name_ble, pcIndxPtr, (pcEndPtr - pcIndxPtr - 1));
-					weather_resp_len = (pcEndPtr - pcIndxPtr - 1);
+					pcIndxPtr = pcIndxPtr + strlen("name=") + 1;
+					pcEndPtr = strstr(pcIndxPtr, "\">");
 					
-					/* Get Latest Value */
-					pcIndxPtr = pcEndPtr + 1;
-					pcEndPtr = strstr(pcIndxPtr, "\" ");
-					if(pcIndxPtr && pcEndPtr)
+					if(pcEndPtr)
 					{
-						memset(curTemperature, 0, sizeof(curTemperature));
-						memcpy(curTemperature, pcIndxPtr, (pcEndPtr - pcIndxPtr - 1));
-						weather_resp_len += (pcEndPtr - pcIndxPtr - 1);
+						//make sure we don't write outsize of the array...
+						if((pcEndPtr - pcIndxPtr)>sizeof(city_name_ble)) 
+						{
+							pcEndPtr = pcIndxPtr + sizeof(city_name_ble);
+						}
+						memset(city_name_ble, 0, sizeof(city_name_ble));
+						memcpy(city_name_ble, pcIndxPtr, (pcEndPtr - pcIndxPtr));
+						printf("found city name: %s\r\n", city_name_ble);
+						weather_resp_len = (pcEndPtr - pcIndxPtr);
 					}
-
-					/* Get Change in stock value */
-					pcIndxPtr = pcEndPtr + 1;
-					pcEndPtr = strstr(pcIndxPtr, "\" ");
-					if(pcIndxPtr && pcEndPtr)
+					
+					/* Get temperature value */
+					pcIndxPtr = strstr(pcEndPtr + 1, "temperature value");
+					if(pcIndxPtr)
 					{
-						memset(curWeather, 0, sizeof(curWeather));
-						memcpy(curWeather, pcIndxPtr, (pcEndPtr - pcIndxPtr - 1));
-						weather_resp_len += (pcEndPtr - pcIndxPtr - 1);
+						pcIndxPtr = pcIndxPtr + strlen("temperature value") + 2;
+						pcEndPtr = strstr(pcIndxPtr, "\" ");
+						
+						if(pcEndPtr)
+						{
+							//make sure we don't write outsize of the array...
+							if((pcEndPtr - pcIndxPtr)>sizeof(curTemperature))
+							{
+								pcEndPtr = pcIndxPtr + sizeof(curTemperature);
+							}
+							memset(curTemperature, 0, sizeof(curTemperature));
+							memcpy(curTemperature, pcIndxPtr, (pcEndPtr - pcIndxPtr));
+							printf("found temperature: %s\r\n", curTemperature);
+							weather_resp_len += (pcEndPtr - pcIndxPtr);
+							
+						}
 					}
-				
+					
+					/* Get weather conditions */
+					pcIndxPtr = strstr(pcEndPtr + 1, "weather number");
+					if(pcIndxPtr)
+					{
+						pcIndxPtr = pcIndxPtr + strlen("weather number") + 14;
+						pcEndPtr = strstr(pcIndxPtr, "\" ");
+						if(pcEndPtr)
+						{
+							//make sure we don't write outsize of the array...
+							if((pcEndPtr - pcIndxPtr)>sizeof(curWeather))
+							{
+								pcEndPtr = pcIndxPtr + sizeof(curWeather);
+							}
+							memset(curWeather, 0, sizeof(curWeather));
+							memcpy(curWeather, pcIndxPtr, (pcEndPtr - pcIndxPtr));
+							printf("found weather number: %s\r\n", curWeather);
+							weather_resp_len += (pcEndPtr - pcIndxPtr);
+						}
+					}
+					
 					/* Construct stock quote
 					Stock Symbol : 
 					Latest Value :
 					Change       : */
 					memset(weather_resp, 0, sizeof(weather_resp));
 					sprintf((char *)weather_resp, "%s%s%s%s%s%s%s", CITY_NAME, city_name_ble, TEMPERATURE_VALUE, curTemperature, WEATHER_VALUE, curWeather, NEW_LINE);
-					/* Send a stock quote to GATT-Client */
-					ble_app_send_stock_quote((uint8_t *)weather_resp, weather_resp_len + sizeof(CITY_NAME) + sizeof(TEMPERATURE_VALUE) + sizeof(WEATHER_VALUE) + sizeof(NEW_LINE));
+					/* Send a weather data to GATT-Client */
+					printf("sending weather to GATT client\r\n");
+					ble_app_send_weather_data((uint8_t *)weather_resp, weather_resp_len + sizeof(CITY_NAME) + sizeof(TEMPERATURE_VALUE) + sizeof(WEATHER_VALUE) + sizeof(NEW_LINE));
 				}
 				else
 				{
 					/* Construct error message */
-					memcpy(weather_resp, STOCK_SERVER_ERROR, sizeof(STOCK_SERVER_ERROR));
+					memcpy(weather_resp, WEATHER_SERVER_ERROR, sizeof(WEATHER_SERVER_ERROR));
 					/* Send a stock quote to GATT-Client */
-					ble_app_send_stock_quote((uint8_t *)weather_resp, sizeof(STOCK_SERVER_ERROR));
+					printf("weather server error\r\n");
+					ble_app_send_weather_data((uint8_t *)weather_resp, sizeof(WEATHER_SERVER_ERROR));
 				}
 				
+				printf("closing socket\r\n");
 				close(tcp_client_socket);
 				tcp_client_socket = -1;
 				gbTcpConnection =false;
@@ -316,73 +343,6 @@ static void socket_cb(SOCKET sock, uint8_t u8Msg, void *pvMsg)
 			}
 		}
 		break;
-
-/*
-				/ * Get city name. * /
-				pcIndxPtr = strstr((char *)pstrRecv->pu8Buffer, "name=");
-				printf("City: ");
-				if (NULL != pcIndxPtr) {
-					pcIndxPtr = pcIndxPtr + strlen("name=") + 1;
-					pcEndPtr = strstr(pcIndxPtr, "\">");
-					if (NULL != pcEndPtr) {
-						*pcEndPtr = 0;
-					}
-
-					printf("%s\r\n", pcIndxPtr);
-				} else {
-					gbTcpConnection = false;
-					close(tcp_client_socket);
-					tcp_client_socket = -1;
-					printf("N/A\r\n");
-					break;
-				}
-
-				/ * Get temperature. * /
-				pcIndxPtr = strstr(pcEndPtr + 1, "temperature value");
-				printf("Temperature: ");
-				if (NULL != pcIndxPtr) {
-					pcIndxPtr = pcIndxPtr + strlen("temperature value") + 2;
-					pcEndPtr = strstr(pcIndxPtr, "\" ");
-					if (NULL != pcEndPtr) {
-						*pcEndPtr = 0;
-					}
-
-					printf("%s\r\n", pcIndxPtr);
-				} else {
-					printf("N/A\r\n");
-					break;
-				}
-
-				/ * Get weather condition. * /
-				pcIndxPtr = strstr(pcEndPtr + 1, "weather number");
-				if (NULL != pcIndxPtr) {
-					printf("Weather Condition: ");
-					pcIndxPtr = pcIndxPtr + strlen("weather number") + 14;
-					pcEndPtr = strstr(pcIndxPtr, "\" ");
-					if (NULL != pcEndPtr) {
-						*pcEndPtr = 0;
-					}
-					printf("%s\r\n", pcIndxPtr);
-					
-					/ * Response processed, now close connection. * /
-					gbTcpConnection = false;
-					close(tcp_client_socket);
-					tcp_client_socket = -1;
-					port_pin_set_output_level(LED_0_PIN, false);
-					break;
-				}
-
-				memset(gau8ReceivedBuffer, 0, sizeof(gau8ReceivedBuffer));
-				recv(tcp_client_socket, &gau8ReceivedBuffer[0], MAIN_WIFI_M2M_BUFFER_SIZE, 0);
-			} else {
-				printf("socket_cb: recv error!\r\n");
-				gbTcpConnection = false;
-				close(tcp_client_socket);
-				tcp_client_socket = -1;
-			}
-		}
-		break;
-*/
 
 		default:
 			break;
@@ -463,6 +423,16 @@ static void wifi_cb(uint8_t u8MsgType, void *pvMsg)
 	}
 }
 
+void request_weather(char *symbol){
+	if(symbol)
+	{
+		memset(city, 0, sizeof(city));
+		memcpy(city, symbol, strlen(symbol));
+		/*set a flag to request stock quote */
+		req_weather = true;
+	}
+}
+
 /**
  * \brief Main application function.
  *
@@ -531,7 +501,7 @@ int main(void)
 	
 	while (1) {
 		m2m_wifi_handle_events(NULL);
-		/*Handle BLE application states and process events */
+		/* Handle BLE application states and process events */
 		ble_app_process();
 
 		if (gbConnectedWifi && !gbTcpConnection && req_weather) {
@@ -561,4 +531,11 @@ int main(void)
 	}
 
 	return 0;
+}
+
+void HardFault_Handler(void)
+{
+	while(1)
+	{
+	}
 }

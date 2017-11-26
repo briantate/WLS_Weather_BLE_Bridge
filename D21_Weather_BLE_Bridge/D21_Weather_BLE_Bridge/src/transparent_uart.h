@@ -71,9 +71,12 @@ typedef enum
 
 typedef enum
 {
-	BLE_APP_STOCK_SYMBOL_NOT_RECEIVED,
-	BLE_APP_STOCK_SYMBOL_RECEIVED,
-	BLE_APP_STOCK_QUOTE_UNDER_PROCESSING,
+//	BLE_APP_STOCK_SYMBOL_NOT_RECEIVED,
+	BLE_APP_CITY_NAME_NOT_RECEIVED,
+//	BLE_APP_STOCK_SYMBOL_RECEIVED,
+	BLE_APP_CITY_NAME_RECEIVED,
+//	BLE_APP_STOCK_QUOTE_UNDER_PROCESSING,
+	BLE_APP_WEATHER_UNDER_PROCESSING
 }ble_app_sq_state_t;
 
 typedef struct  
@@ -85,7 +88,8 @@ typedef struct
 	/* BLE Application state */
 	ble_app_sq_state_t sq_state;
 	/* Stock symbol received from remote device */
-	char stock_symbol[10];
+	//char stock_symbol[10];
+	char city_name[20];
 }remote_dev_info_t;
 
 /****************************************************************************************
@@ -134,8 +138,8 @@ bool ble_app_is_init_state(void);
   *
   * @return stock symbol
   */
-char* ble_app_get_stock_symbol(void);
-
+//char* ble_app_get_stock_symbol(void);
+char* ble_app_get_city_name(void);
 /** @brief Send stock quote to remote device
   * 
   * @param[in] data	Stock quote
@@ -143,7 +147,8 @@ char* ble_app_get_stock_symbol(void);
   *
   * @return 
   */
-void ble_app_send_stock_quote(uint8_t *data, uint16_t data_len);
+//void ble_app_send_stock_quote(uint8_t *data, uint16_t data_len);
+void ble_app_send_weather_data(uint8_t *data, uint16_t data_len);
 
 /** @brief Set BLE application state to start advertisement
   * 
